@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Email</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container mx-auto p-4">
+    <h1 class="text-2xl font-bold mb-4">Hello, <span th:text="${name}">User</span>!</h1>
+    <p class="text-gray-700">This is an HTML email with Tailwind CSS styling.</p>
+</div>
+</body>
+</html>

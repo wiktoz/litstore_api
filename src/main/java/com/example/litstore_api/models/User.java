@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 
 @Data
@@ -18,18 +19,22 @@ import java.util.List;
 @AllArgsConstructor
 
 @Entity
-@Table(name="Users", uniqueConstraints = @UniqueConstraint(columnNames = "email"))
+@Table(name="users", uniqueConstraints = @UniqueConstraint(columnNames = "user_id"))
 
 public class User implements UserDetails {
     @Id
     @GeneratedValue
-    private String id;
+    private Integer user_id;
+    private Integer mainaddress_id;
     private String email;
     private String password;
     private Boolean active;
 
     @Enumerated(EnumType.STRING)
     private SecurityRole role;
+
+    private Date created_at;
+    private Date updated_at;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

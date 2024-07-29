@@ -1,54 +1,83 @@
-drop database litstore;
+drop database if exists litstore;
+
+DO $$
+DECLARE
+r RECORD;
+BEGIN
+FOR r IN
+SELECT table_schema, table_name
+FROM information_schema.tables
+WHERE table_type = 'BASE TABLE' AND table_schema NOT IN ('pg_catalog', 'information_schema')
+    LOOP
+        EXECUTE 'DROP TABLE IF EXISTS ' || r.table_schema || '.' || r.table_name || ' CASCADE;';
+END LOOP;
+END $$;
+
+DO $$
+DECLARE
+r RECORD;
+BEGIN
+FOR r IN
+SELECT sequence_schema, sequence_name
+FROM information_schema.sequences
+         LOOP
+    EXECUTE 'DROP SEQUENCE IF EXISTS ' || r.sequence_schema || '.' || r.sequence_name || ' CASCADE;';
+END LOOP;
+END $$;
+
+DO $$
+DECLARE
+enum_record RECORD;
+BEGIN
+FOR enum_record IN
+SELECT enumtypid::regtype AS enum_name
+FROM pg_enum
+GROUP BY enumtypid
+    LOOP
+        EXECUTE 'DROP TYPE IF EXISTS ' || enum_record.enum_name || ' CASCADE;';
+END LOOP;
+END $$;
 
 create database litstore;
 
 \connect litstore;
 
-alter default privileges grant all on tables to litstore;
-alter default privileges grant all on sequences to litstore;
+--- Enums
+CREATE TYPE languages AS ENUM ('pl', 'en', 'fr', 'de');
+CREATE TYPE currencies AS ENUM ('PLN', 'USD', 'EUR', 'CHF');
+CREATE TYPE selection_types as ENUM ('select', 'button');
+CREATE TYPE discount_unit AS ENUM ('percent', 'cash');
+CREATE TYPE item_unit AS ENUM ('pcs.', 'set', 'kg', 'l');
+CREATE TYPE order_status AS ENUM ('pending', 'processing', 'shipped', 'delivered', 'cancelled');
+CREATE TYPE payment_status AS ENUM ('PENDING', 'SUCCESS', 'CANCELLED');
 
-create table Users(
-                      UserID int primary key unique not null default nextval('UserID_seq'),
-                      email varchar(60) not null,
-                      password char(64) not null,
-                      MainAddressID int,
-                      RoleID int,
-                      active boolean default true,
-                      created_at timestamp default current_timestamp not null,
-                      updated_at timestamp default current_timestamp not null,
-                      FOREIGN KEY (RoleID) REFERENCES Roles(RoleID),
-                      FOREIGN KEY (MainAddressID) REFERENCES Addresses(AddressID)
-);
+--- Sequences for auto ID generation
+create sequence user_id_seq start 1 increment 1 cache 1;
+create sequence role_id_seq start 1 increment 1 cache 1;
+create sequence permission_id_seq start 1 increment 1 cache 1;
+create sequence address_id_seq start 1 increment 1 cache 1;
+create sequence category_id_seq start 1 increment 1 cache 1;
+create sequence subcategory_id_seq start 1 increment 1 cache 1;
+create sequence promo_code_id_seq start 1 increment 1 cache 1;
+create sequence product_id_seq start 1 increment 1 cache 1;
+create sequence product_photo_id_seq start 1 increment 1 cache 1;
+create sequence product_description_id_seq start 1 increment 1 cache 1;
+create sequence variant_type_id_seq start 1 increment 1 cache 1;
+create sequence variant_option_id_seq start 1 increment 1 cache 1;
+create sequence item_id_seq start 1 increment 1 cache 1;
+create sequence delivery_id_seq start 1 increment 1 cache 1;
+create sequence order_id_seq start 1000 increment 1 cache 1;
+create sequence token_id_seq start 1 increment 1 cache 1;
+
 
 create table Roles(
-                      RoleID int primary key unique not null default nextval('RoleID_seq'),
+                      role_id int primary key unique not null default nextval('role_id_seq'),
                       name varchar(60) not null
 );
 
-create table Permissions(
-                            PermissionID int primary key unique not null default nextval('PermissionID_seq'),
-                            name varchar(60) not null
-);
-
-create table PermissionsRoles(
-                                 RoleID int not null,
-                                 PermissionID int not null,
-                                 PRIMARY KEY (RoleID, PermissionID),
-                                 FOREIGN KEY (RoleID) REFERENCES Roles(RoleID),
-                                 FOREIGN KEY (PermissionID) REFERENCES Permissions(PermissionID)
-);
-
-create table PermissionsUsers(
-                                 UserID int not null,
-                                 PermissionID int not null,
-                                 PRIMARY KEY (UserID, PermissionID),
-                                 FOREIGN KEY (UserID) REFERENCES Users(UserID),
-                                 FOREIGN KEY (PermissionID) REFERENCES Permissions(PermissionID)
-);
-
 create table Addresses(
-                          AddressID int primary key unique not null default nextval('AddressID_seq'),
-                          UserID int not null,
+                          address_id int primary key unique not null default nextval('address_id_seq'),
+                          user_id int not null,
                           name varchar(60) not null,
                           surname varchar(60) not null,
                           street varchar(60) not null,
@@ -60,8 +89,43 @@ create table Addresses(
                           country varchar(60) not null
 );
 
+create table Users(
+                      user_id int primary key unique not null default nextval('user_id_seq'),
+                      email varchar(60) not null,
+                      password char(64) not null,
+                      Mainaddress_id int,
+                      role_id int,
+                      active boolean default true,
+                      created_at timestamp default current_timestamp not null,
+                      updated_at timestamp default current_timestamp not null,
+                      FOREIGN KEY (role_id) REFERENCES Roles(role_id),
+                      FOREIGN KEY (Mainaddress_id) REFERENCES Addresses(address_id)
+);
+
+create table Permissions(
+                            permission_id int primary key unique not null default nextval('permission_id_seq'),
+                            name varchar(60) not null
+);
+
+create table PermissionsRoles(
+                                 role_id int not null,
+                                 permission_id int not null,
+                                 PRIMARY KEY (role_id, permission_id),
+                                 FOREIGN KEY (role_id) REFERENCES Roles(role_id),
+                                 FOREIGN KEY (permission_id) REFERENCES Permissions(permission_id)
+);
+
+create table PermissionsUsers(
+                                 user_id int not null,
+                                 permission_id int not null,
+                                 PRIMARY KEY (user_id, permission_id),
+                                 FOREIGN KEY (user_id) REFERENCES Users(user_id),
+                                 FOREIGN KEY (permission_id) REFERENCES Permissions(permission_id)
+);
+
+
 create table Categories(
-                           CategoryID int primary key unique not null default nextval('CategoryID_seq'),
+                           category_id int primary key unique not null default nextval('category_id_seq'),
                            name varchar(50) not null,
                            description text,
                            seo_description text,
@@ -74,8 +138,8 @@ create table Categories(
 );
 
 create table Subcategories(
-                              SubcategoryID int primary key unique not null default nextval('SubcategoryID_seq'),
-                              CategoryID int not null,
+                              subcategory_id int primary key unique not null default nextval('subcategory_id_seq'),
+                              category_id int not null,
                               name varchar(50) not null,
                               description text,
                               seo_description text,
@@ -85,11 +149,40 @@ create table Subcategories(
                               display_footer boolean default true,
                               active boolean default true,
                               slug varchar(60) not null,
-                              FOREIGN KEY (CategoryID) REFERENCES Categories(CategoryID)
+                              FOREIGN KEY (category_id) REFERENCES Categories(category_id)
+);
+
+create table Products(
+                         product_id int primary key unique not null default nextval('product_id_seq'),
+                         category_id int,
+                         subcategory_id int,
+                         name varchar(60),
+                         manufacturer varchar(60),
+                         new boolean not null default true,
+                         active boolean not null default true,
+                         slug varchar(70) not null,
+                         created_at timestamp default current_timestamp not null,
+                         updated_at timestamp default current_timestamp not null
+);
+
+create table VariantTypes(
+                             variant_type_id int primary key unique not null default nextval('variant_type_id_seq'),
+                             name varchar(60) not null,
+                             display_name varchar(40) not null,
+                             selection_type selection_types not null,
+                             slug varchar(70) not null
+);
+
+create table VariantOptions(
+                               variant_option_id int primary key unique not null default nextval('variant_option_id_seq'),
+                               variant_type_id int not null,
+                               name varchar(40) not null,
+                               order_index int not null,
+                               FOREIGN KEY (variant_type_id) REFERENCES VariantTypes(variant_type_id)
 );
 
 create table PromoCodes(
-                           PromoCodeID int primary key unique not null default nextval('PromoCodeID_seq'),
+                           promo_code_id int primary key unique not null default nextval('promo_code_id_seq'),
                            code varchar(50) not null,
                            discount numeric(6, 2) not null,
                            unit discount_unit not null,
@@ -102,96 +195,67 @@ create table PromoCodes(
 );
 
 create table PromoCodeCategories(
-                                    PromoCodeID int not null,
-                                    CategoryID int not null,
-                                    PRIMARY KEY (PromoCodeID, CategoryID),
-                                    FOREIGN KEY (PromoCodeID) REFERENCES PromoCodes(PromoCodeID),
-                                    FOREIGN KEY (CategoryID) REFERENCES Categories(CategoryID)
+                                    promo_code_id int not null,
+                                    category_id int not null,
+                                    PRIMARY KEY (promo_code_id, category_id),
+                                    FOREIGN KEY (promo_code_id) REFERENCES PromoCodes(promo_code_id),
+                                    FOREIGN KEY (category_id) REFERENCES Categories(category_id)
 );
 
 create table PromoCodeSubcategories(
-                                       PromoCodeID int not null,
-                                       SubcategoryID int not null,
-                                       PRIMARY KEY (PromoCodeID, SubcategoryID),
-                                       FOREIGN KEY (PromoCodeID) REFERENCES PromoCodes(PromoCodeID),
-                                       FOREIGN KEY (SubcategoryID) REFERENCES Subcategories(SubcategoryID)
+                                       promo_code_id int not null,
+                                       subcategory_id int not null,
+                                       PRIMARY KEY (promo_code_id, subcategory_id),
+                                       FOREIGN KEY (promo_code_id) REFERENCES PromoCodes(promo_code_id),
+                                       FOREIGN KEY (subcategory_id) REFERENCES Subcategories(subcategory_id)
 );
 
 create table PromoCodeProducts(
-                                  PromoCodeID int not null,
-                                  ProductID int not null,
-                                  PRIMARY KEY (PromoCodeID, ProductID),
-                                  FOREIGN KEY (PromoCodeID) REFERENCES PromoCodes(PromoCodeID),
-                                  FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
+                                  promo_code_id int not null,
+                                  product_id int not null,
+                                  PRIMARY KEY (promo_code_id, product_id),
+                                  FOREIGN KEY (promo_code_id) REFERENCES PromoCodes(promo_code_id),
+                                  FOREIGN KEY (product_id) REFERENCES Products(product_id)
 );
 
 create table PromoCodeVariantOptions(
-                                        PromoCodeID int not null,
-                                        VariantOptionID int not null,
-                                        PRIMARY KEY (PromoCodeID, VariantOptionID),
-                                        FOREIGN KEY (PromoCodeID) REFERENCES PromoCodes(PromoCodeID),
-                                        FOREIGN KEY (VariantOptionID) REFERENCES VariantOptions(VariantOptionID)
-);
-
-create table Products(
-                         ProductID int primary key unique not null default nextval('ProductID_seq'),
-                         CategoryID int,
-                         SubcategoryID int,
-                         name varchar(60),
-                         manufacturer varchar(60),
-                         new boolean not null default true,
-                         active boolean not null default true,
-                         slug varchar(70) not null,
-                         created_at timestamp default current_timestamp not null,
-                         updated_at timestamp default current_timestamp not null
+                                        promo_code_id int not null,
+                                        variant_option_id int not null,
+                                        PRIMARY KEY (promo_code_id, variant_option_id),
+                                        FOREIGN KEY (promo_code_id) REFERENCES PromoCodes(promo_code_id),
+                                        FOREIGN KEY (variant_option_id) REFERENCES VariantOptions(variant_option_id)
 );
 
 create table ProductPhotos(
-                              ProductPhotoID int primary key unique not null default nextval('ProductPhotoID_seq'),
-                              ProductID int not null,
+                              product_photo_id int primary key unique not null default nextval('product_photo_id_seq'),
+                              product_id int not null,
                               url varchar(150) not null,
                               order_index int not null,
-                              FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
+                              FOREIGN KEY (product_id) REFERENCES Products(product_id)
 );
 
 create table ProductDescriptions(
-                                    ProductDescriptionID int primary key unique not null default nextval('ProductDescriptionID_seq'),
-                                    ProductID int not null,
+                                    product_description_id int primary key unique not null default nextval('product_description_id_seq'),
+                                    product_id int not null,
                                     lang_code languages not null,
                                     description text,
-                                    FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
-);
-
-create table VariantTypes(
-                             VariantTypeID int primary key unique not null default nextval('VariantTypeID_seq'),
-                             name varchar(60) not null,
-                             display_name varchar(40) not null,
-                             selection_type selection_types not null,
-                             slug varchar(70) not null
-);
-
-create table VariantOptions(
-                               VariantOptionID int primary key unique not null default nextval('VariantOptionID_seq'),
-                               VariantTypeID int not null,
-                               name varchar(40) not null,
-                               order_index int not null,
-                               FOREIGN KEY (VariantTypeID) REFERENCES VariantTypes(VariantTypeID)
+                                    FOREIGN KEY (product_id) REFERENCES Products(product_id)
 );
 
 create table Items(
-                      ItemID int primary key unique not null default nextval('ItemID_seq'),
-                      ProductID int not null,
-                      VariantOptionID int not null,
+                      item_id int primary key unique not null default nextval('item_id_seq'),
+                      product_id int not null,
+                      variant_option_id int not null,
                       price numeric(6,2) not null,
                       stock int not null,
                       unit item_unit not null default 'pcs.',
                       sku varchar(50) not null unique,
-                      FOREIGN KEY (ProductID) REFERENCES Products(ProductID),
-                      FOREIGN KEY (VariantOptionID) REFERENCES VariantOptions(VariantOptionID)
+                      FOREIGN KEY (product_id) REFERENCES Products(product_id),
+                      FOREIGN KEY (variant_option_id) REFERENCES VariantOptions(variant_option_id)
 );
 
 create table Deliveries(
-                           DeliveryID int primary key unique not null default nextval('DeliveryID_seq'),
+                           delivery_id int primary key unique not null default nextval('delivery_id_seq'),
                            name varchar(60) not null,
                            description text,
                            img varchar(150) not null,
@@ -204,20 +268,20 @@ create table Deliveries(
 );
 
 create table DeliveriesItems(
-                                DeliveryID int not null,
-                                ItemID int not null,
-                                PRIMARY KEY (DeliveryID, ItemID),
-                                FOREIGN KEY (DeliveryID) REFERENCES Deliveries(DeliveryID),
-                                FOREIGN KEY (ItemID) REFERENCES Items(ItemID)
+                                delivery_id int not null,
+                                item_id int not null,
+                                PRIMARY KEY (delivery_id, item_id),
+                                FOREIGN KEY (delivery_id) REFERENCES Deliveries(delivery_id),
+                                FOREIGN KEY (item_id) REFERENCES Items(item_id)
 );
 
 create table Orders(
-                       OrderID int primary key unique not null default nextval('OrderID_seq'),
-                       AddressID int not null,
-                       DeliveryID int not null,
-                       DeliveryAddressID int not null,
-                       PromoCodeID int,
-                       UserID int,
+                       order_id int primary key unique not null default nextval('order_id_seq'),
+                       address_id int not null,
+                       delivery_id int not null,
+                       Deliveryaddress_id int not null,
+                       promo_code_id int,
+                       user_id int,
                        guest_email varchar(60),
                        discount_amount numeric(6,2) not null,
                        payment_amount numeric(6,2) not null,
@@ -232,39 +296,21 @@ create table Orders(
 );
 
 create table OrderItems(
-                           OrderID int not null,
-                           ItemID int not null,
+                           order_id int not null,
+                           item_id int not null,
                            quantity int not null,
                            price numeric(6,2) not null,
-                           PRIMARY KEY (OrderID, ItemID),
-                           FOREIGN KEY (OrderID) REFERENCES Orders(OrderID),
-                           FOREIGN KEY (ItemID) REFERENCES Items(ItemID)
+                           PRIMARY KEY (order_id, item_id),
+                           FOREIGN KEY (order_id) REFERENCES Orders(order_id),
+                           FOREIGN KEY (item_id) REFERENCES Items(item_id)
 );
 
 create table Tokens(
-                       TokenID int primary key unique not null default nextval('TokenID_seq'),
+                       token_id int primary key unique not null default nextval('token_id_seq'),
                        token char(64) not null,
                        created_at timestamp not null default current_timestamp,
                        expiring_at timestamp not null
 );
-
---- Sequences for auto ID generation
-create sequence UserID_seq start 1 increment 1 cache 1;
-create sequence RoleID_seq start 1 increment 1 cache 1;
-create sequence PermissionID_seq start 1 increment 1 cache 1;
-create sequence AddressID_seq start 1 increment 1 cache 1;
-create sequence CategoryID_seq start 1 increment 1 cache 1;
-create sequence SubcategoryID_seq start 1 increment 1 cache 1;
-create sequence PromoCodeID_seq start 1 increment 1 cache 1;
-create sequence ProductID_seq start 1 increment 1 cache 1;
-create sequence ProductPhotoID_seq start 1 increment 1 cache 1;
-create sequence ProductDescriptionID_seq start 1 increment 1 cache 1;
-create sequence VariantTypeID_seq start 1 increment 1 cache 1;
-create sequence VariantOptionID_seq start 1 increment 1 cache 1;
-create sequence ItemID_seq start 1 increment 1 cache 1;
-create sequence DeliveryID_seq start 1 increment 1 cache 1;
-create sequence OrderID_seq start 1000 increment 1 cache 1;
-create sequence TokenID_seq start 1 increment 1 cache 1;
 
 --- Functions
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -280,7 +326,7 @@ BEGIN
     NEW.order_index := (
         SELECT COUNT(*) + 1
         FROM ProductPhotos
-        WHERE ProductID = NEW.ProductID
+        WHERE product_id = NEW.product_id
     );
 RETURN NEW;
 END;
@@ -291,7 +337,7 @@ BEGIN
     NEW.order_index := (
         SELECT COUNT(*) + 1
         FROM VariantOptions
-        WHERE VariantTypeID = NEW.VariantTypeID
+        WHERE variant_type_id = NEW.variant_type_id
     );
 RETURN NEW;
 END;
@@ -322,12 +368,3 @@ CREATE TRIGGER set_order_index_variant_options
     BEFORE UPDATE ON VariantOptions
     FOR EACH ROW
     EXECUTE FUNCTION set_order_index_variant_options();
-
---- Enums
-CREATE TYPE languages AS ENUM ('pl', 'en', 'fr', 'de');
-CREATE TYPE currencies AS ENUM ('PLN', 'USD', 'EUR', 'CHF');
-CREATE TYPE selection_types as ENUM ('select', 'button');
-CREATE TYPE discount_unit AS ENUM ('percent', 'cash');
-CREATE TYPE item_unit AS ENUM ('pcs.', 'set', 'kg', 'l');
-CREATE TYPE order_status AS ENUM ('pending', 'processing', 'shipped', 'delivered', 'cancelled');
-CREATE TYPE payment_status AS ENUM ('PENDING', 'SUCCESS', 'CANCELLED');
